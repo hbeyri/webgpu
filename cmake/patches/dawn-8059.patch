@@ -1,0 +1,50 @@
+diff --git a/tools/fetch_dawn_dependencies.py b/tools/fetch_dawn_dependencies.py
+index 6cbcb94..680d679 100644
+--- a/tools/fetch_dawn_dependencies.py
++++ b/tools/fetch_dawn_dependencies.py
+@@ -88,7 +88,8 @@ parser.add_argument('-t',
+                     action='store_true',
+                     default=False,
+                     help="""
+-    Deprecated: Test dependencies are now always included.
++    Also fetch the dependencies only needed for tests, benchmarks, protobuf
++    and the D3D12 backend's own DXC build.
+     """)
+ 
+ 
+@@ -97,18 +98,12 @@ def main(args):
+     # Dependencies of dependencies are prefixed by their ancestors.
+     required_submodules = [
+         'third_party/abseil-cpp',
+-        'third_party/directx-shader-compiler/src',
+-        'third_party/directx-headers/src',
+         'third_party/glfw3/src',
+         'third_party/jinja2',
+         'third_party/EGL-Registry/src',
+         'third_party/OpenGL-Registry/src',
+-        'third_party/libprotobuf-mutator/src',
+-        'third_party/protobuf',
+         'third_party/markupsafe',
+         'third_party/glslang/src',
+-        'third_party/google_benchmark/src',
+-        'third_party/googletest/src',
+         'third_party/spirv-headers/src',
+         'third_party/spirv-tools/src',
+         'third_party/vulkan-headers/src',
+@@ -117,6 +112,16 @@ def main(args):
+         'third_party/webgpu-headers/src',
+     ]
+ 
++    if args.use_test_deps:
++        required_submodules += [
++            'third_party/directx-shader-compiler/src',
++            'third_party/directx-headers/src',
++            'third_party/libprotobuf-mutator/src',
++            'third_party/protobuf',
++            'third_party/google_benchmark/src',
++            'third_party/googletest/src',
++        ]
++
+     root_dir = Path(args.directory).resolve()
+ 
+     process_dir(args, root_dir, required_submodules)

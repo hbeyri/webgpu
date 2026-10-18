@@ -139,7 +139,9 @@ int main (int, char**) {
     WGPUInstanceDescriptor desc = {};
     desc.nextInChain = nullptr;
     // Needed so wgpuInstanceWaitAny can wait with a timeout (used in requestAdapterSync)
-    desc.capabilities.timedWaitAnyEnable = true;
+    WGPUInstanceFeatureName requiredFeatures[] = { WGPUInstanceFeatureName_TimedWaitAny };
+    desc.requiredFeatureCount = 1;
+    desc.requiredFeatures = requiredFeatures;
 
     // We create the instance using this descriptor
     WGPUInstance instance = wgpuCreateInstance(&desc);
