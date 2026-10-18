@@ -13,5 +13,6 @@ add_executable(${PROJECT_NAME} main.cpp)
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
+        -Wno-missing-braces -Wno-switch)
 endif()
