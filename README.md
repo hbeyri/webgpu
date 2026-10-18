@@ -7,7 +7,7 @@ A C++20 project built with CMake and Ninja.
 - CMake 3.25 or newer (needed for `CMakePresets.json`)
 - Ninja
 - A C++20 compiler (Clang, GCC or MSVC)
-- An internet connection the first time you configure (to download WebGPU, see below)
+- Git, Python 3 and an internet connection the first time you configure (to download and build Dawn, see below)
 
 ## Build
 
@@ -62,9 +62,10 @@ Use `./build/release/webgpuapp` for the release build.
 
 WebGPU comes from the [`webgpu/`](webgpu) folder, a copy of [WebGPU-distribution](https://github.com/eliemichel/WebGPU-distribution) `v0.3.0-gamma` from the Learn WebGPU for C++ guide. It defines the `webgpu` CMake target that `webgpuapp` links against, and also provides the `webgpu.hpp` C++ wrapper.
 
-- The default backend is [Dawn](https://dawn.googlesource.com/dawn), Chrome's implementation, version `chromium/7187`. `CMakeLists.txt` sets this default.
-- The first configure downloads a prebuilt Dawn into `build/<preset>/_deps`. Later configures reuse it. The prebuilt binaries come from [eliemichel/dawn-prebuilt](https://github.com/eliemichel/dawn-prebuilt), the distribution's mirror.
-- Dawn is a shared library. The build copies it next to the executable (`libwebgpu_dawn.dylib` on macOS), so keep that file with `webgpuapp` when you move it.
+- The default backend is [Dawn](https://dawn.googlesource.com/dawn), Chrome's implementation, built from source from the `chromium/8059` branch (the one used by Chrome 155 stable). `CMakeLists.txt` sets these defaults.
+- The first configure downloads the Dawn source and its dependencies once into `build/_shared/dawn-<version>`, shared by all presets. Each preset still compiles Dawn in its own build folder. Later configures and builds reuse both. To use a different folder for the shared source, set `DAWN_SHARED_SOURCE_DIR`.
+- Before Dawn fetches its dependencies, [`cmake/patches/dawn-8059.patch`](cmake/patches/dawn-8059.patch) is applied to its `tools/fetch_dawn_dependencies.py`. It skips the dependencies this project doesn't build: the DirectX shader compiler and headers, protobuf, googletest and google benchmark. Since protobuf is skipped, `CMakeLists.txt` also sets `DAWN_BUILD_PROTOBUF=OFF`. If you change `DAWN_VERSION`, add a patch for that version (`cmake/patches/dawn-<version>.patch`), or Dawn fetches all its dependencies.
+- Dawn is linked statically, so `webgpuapp` doesn't need any extra library file next to it.
 
 ### Options
 
@@ -77,10 +78,12 @@ cmake --preset debug -DWEBGPU_BACKEND=WGPU
 | Option                     | Values                   | Default  | Meaning                                                    |
 |----------------------------|--------------------------|----------|------------------------------------------------------------|
 | `WEBGPU_BACKEND`           | `DAWN`, `WGPU`           | `DAWN`   | Which WebGPU implementation to use                         |
-| `WEBGPU_BUILD_FROM_SOURCE` | `ON`, `OFF`              | `OFF`    | Build Dawn from source instead of downloading it (needs Python, and is much slower) |
-| `WEBGPU_LINK_TYPE`         | `SHARED`, `STATIC`       | `SHARED` | Link WebGPU dynamically or statically (prebuilt Dawn supports `SHARED` only) |
+| `WEBGPU_BUILD_FROM_SOURCE` | `ON`, `OFF`              | `ON`     | Build Dawn from source (`ON`) or download a prebuilt one (`OFF`) |
+| `DAWN_VERSION`             | a Dawn branch number     | `8059`   | Which `chromium/<number>` branch of Dawn to use            |
 
 `WGPU` uses [wgpu-native](https://github.com/gfx-rs/wgpu-native), Firefox's implementation.
+
+Prebuilt Dawn only exists for some versions. To use it, set both options, for example `-DWEBGPU_BUILD_FROM_SOURCE=OFF -DDAWN_VERSION=7187`. The prebuilt binaries come from [eliemichel/dawn-prebuilt](https://github.com/eliemichel/dawn-prebuilt), and Dawn is then a shared library copied next to `webgpuapp` (`libwebgpu_dawn.dylib` on macOS). Note that `main.cpp` is written for the API of Dawn 8059. Other versions may need code changes, for example 7187 uses `capabilities.timedWaitAnyEnable` instead of `requiredFeatures` in `WGPUInstanceDescriptor`.
 
 Options are saved in the build folder's cache. To switch an existing build folder back to the defaults, configure it with `cmake --preset debug --fresh`.
 
