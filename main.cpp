@@ -83,8 +83,6 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 }
 
 void inspectAdapter(WGPUAdapter adapter) {
-#ifndef __EMSCRIPTEN__
-	// WGPUSupportedLimits is gone: limits are read directly into WGPULimits
 	WGPULimits limits = {};
 	limits.nextInChain = nullptr;
 
@@ -97,10 +95,8 @@ void inspectAdapter(WGPUAdapter adapter) {
 		std::cout << " - maxTextureDimension3D: " << limits.maxTextureDimension3D << std::endl;
 		std::cout << " - maxTextureArrayLayers: " << limits.maxTextureArrayLayers << std::endl;
 	}
-#endif // NOT __EMSCRIPTEN__
 
-	// wgpuAdapterEnumerateFeatures is replaced by wgpuAdapterGetFeatures, which
-	// fills a WGPUSupportedFeatures struct in one call. The array it points to
+	// wgpuAdapterGetFeatures fills a WGPUSupportedFeatures struct in one call. The array it points to
 	// is owned by WebGPU and must be freed with wgpuSupportedFeaturesFreeMembers.
 	WGPUSupportedFeatures features = {};
 	wgpuAdapterGetFeatures(adapter, &features);
