@@ -16,3 +16,14 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
         -Wno-missing-braces -Wno-switch)
 endif()
+
+# Disable RTTI and exceptions
+if(MSVC)
+    # CMake's default CMAKE_CXX_FLAGS has /GR /EHsc; remove them so they don't conflict
+    string(REPLACE "/GR" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    target_compile_options(${PROJECT_NAME} PRIVATE /GR- /EHs-c-)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _HAS_EXCEPTIONS=0)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -fno-rtti -fno-exceptions)
+endif()

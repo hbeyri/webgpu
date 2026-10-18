@@ -40,3 +40,18 @@ You only need to run the configure step (`cmake --preset ...`) once, or again af
 ```
 
 Use `./build/release/webgpu` for the release build.
+
+## RTTI and exceptions
+
+The project is compiled with RTTI and exceptions disabled:
+
+| Compiler  | Flags                                       |
+|-----------|---------------------------------------------|
+| Clang/GCC | `-fno-rtti -fno-exceptions`                 |
+| MSVC      | `/GR- /EHs-c-` and `_HAS_EXCEPTIONS=0`      |
+
+This means:
+
+- `dynamic_cast` and `typeid` on polymorphic types don't compile.
+- `try`, `catch` and `throw` don't compile.
+- Standard library calls that would normally throw (for example a failed `new` or `std::vector::at` out of range) terminate the program instead.
