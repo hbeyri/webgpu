@@ -16,15 +16,19 @@ set(DAWN_VERSION "8059" CACHE STRING "Dawn version to use: the number after 'chr
 
 # Share one copy of the Dawn source between all build folders (debug, release, ...).
 # Each build folder still compiles Dawn on its own, but the source and its
-# dependencies are only downloaded once.
-set(DAWN_SHARED_SOURCE_DIR "${CMAKE_SOURCE_DIR}/build/_shared/dawn-${DAWN_VERSION}" CACHE PATH
-    "Where to keep the shared Dawn source when building Dawn from source")
+# dependencies are only downloaded once. Each Dawn version gets its own
+# subfolder, computed on every configure so that changing DAWN_VERSION in an
+# existing build folder switches to the right one.
+set(DAWN_SHARED_SOURCE_ROOT "${CMAKE_SOURCE_DIR}/build/_shared" CACHE PATH
+    "Folder holding the shared Dawn source (one dawn-<version> subfolder per version)")
+set(DAWN_SHARED_SOURCE_DIR "${DAWN_SHARED_SOURCE_ROOT}/dawn-${DAWN_VERSION}")
 
 string(TOUPPER "${WEBGPU_BACKEND}" WEBGPU_BACKEND_UPPER)
 # FetchContent saves FETCHCONTENT_SOURCE_DIR_DAWN in the cache once set, so
-# only skip this block when it points somewhere else (set by hand on purpose)
+# only skip this block when it points outside our shared folder (set by hand on purpose)
+string(FIND "${FETCHCONTENT_SOURCE_DIR_DAWN}" "${DAWN_SHARED_SOURCE_ROOT}/dawn-" dawn_dir_is_ours)
 if(WEBGPU_BACKEND_UPPER STREQUAL "DAWN" AND WEBGPU_BUILD_FROM_SOURCE
-        AND (NOT FETCHCONTENT_SOURCE_DIR_DAWN OR FETCHCONTENT_SOURCE_DIR_DAWN STREQUAL DAWN_SHARED_SOURCE_DIR))
+        AND (NOT FETCHCONTENT_SOURCE_DIR_DAWN OR dawn_dir_is_ours EQUAL 0))
     # The stamp file is written only after a complete download, so an
     # interrupted download is retried on the next configure
     set(dawn_stamp "${DAWN_SHARED_SOURCE_DIR}/.webgpuapp-fetched")
