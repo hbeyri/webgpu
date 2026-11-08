@@ -7,11 +7,14 @@
 
 // WebGPU strings are a pointer + length (WGPUStringView). A length of
 // WGPU_STRLEN means the string is null-terminated.
-std::string_view toStdStringView(WGPUStringView view) {
-	if (!view.data) {
+std::string_view toStdStringView(WGPUStringView view)
+{
+	if (!view.data)
+	{
 		return {};
 	}
-	if (view.length == WGPU_STRLEN) {
+	if (view.length == WGPU_STRLEN)
+	{
 		return std::string_view(view.data);
 	}
 	return std::string_view(view.data, view.length);
@@ -23,10 +26,12 @@ std::string_view toStdStringView(WGPUStringView view) {
  * is roughly equivalent to
  *     const adapter = await navigator.gpu.requestAdapter(options);
  */
-WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
+WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions const* options)
+{
 	// A simple structure holding the local information shared with the
 	// onAdapterRequestEnded callback.
-	struct UserData {
+	struct UserData
+	{
 		WGPUAdapter adapter = nullptr;
 		bool requestEnded = false;
 	};
@@ -40,15 +45,19 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 	// is to convey what we want to capture through the userdata1 pointer,
 	// set in the callback info and received by the callback as its
 	// second-to-last argument (userdata2 is a second, unused slot).
-	auto onAdapterRequestEnded = [](WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void * pUserData, void * /* pUserData2 */) {
-		UserData& userData = *reinterpret_cast<UserData*>(pUserData);
-		if (status == WGPURequestAdapterStatus_Success) {
-			userData.adapter = adapter;
-		} else {
-			std::cout << "Could not get WebGPU adapter: " << toStdStringView(message) << std::endl;
-		}
-		userData.requestEnded = true;
-	};
+	auto onAdapterRequestEnded = [](WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* pUserData, void* /* pUserData2 */)
+		{
+			UserData& userData = *reinterpret_cast<UserData*>(pUserData);
+			if (status == WGPURequestAdapterStatus_Success)
+			{
+				userData.adapter = adapter;
+			}
+			else
+			{
+				std::cout << "Could not get WebGPU adapter: " << toStdStringView(message) << std::endl;
+			}
+			userData.requestEnded = true;
+		};
 
 	// The callback and its user data are now passed together in a struct.
 	// WaitAnyOnly means the callback only runs from inside wgpuInstanceWaitAny.
@@ -73,7 +82,8 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 	waitInfo.future = future;
 	waitInfo.completed = false;
 	WGPUWaitStatus waitStatus = wgpuInstanceWaitAny(instance, 1, &waitInfo, UINT64_MAX);
-	if (waitStatus != WGPUWaitStatus_Success) {
+	if (waitStatus != WGPUWaitStatus_Success)
+	{
 		std::cout << "Waiting for the adapter request failed" << std::endl;
 	}
 
@@ -82,13 +92,15 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 	return userData.adapter;
 }
 
-void inspectAdapter(WGPUAdapter adapter) {
+void inspectAdapter(WGPUAdapter adapter)
+{
 	WGPULimits limits = {};
 	limits.nextInChain = nullptr;
 
 	bool success = wgpuAdapterGetLimits(adapter, &limits) == WGPUStatus_Success;
 
-	if (success) {
+	if (success)
+	{
 		std::cout << "Adapter limits:" << std::endl;
 		std::cout << " - maxTextureDimension1D: " << limits.maxTextureDimension1D << std::endl;
 		std::cout << " - maxTextureDimension2D: " << limits.maxTextureDimension2D << std::endl;
@@ -103,7 +115,8 @@ void inspectAdapter(WGPUAdapter adapter) {
 
 	std::cout << "Adapter features:" << std::endl;
 	std::cout << std::hex; // Write integers as hexadecimal to ease comparison with webgpu.h literals
-	for (size_t i = 0; i < features.featureCount; ++i) {
+	for (size_t i = 0; i < features.featureCount; ++i)
+	{
 		std::cout << " - 0x" << features.features[i] << std::endl;
 	}
 	std::cout << std::dec; // Restore decimal numbers
@@ -114,7 +127,8 @@ void inspectAdapter(WGPUAdapter adapter) {
 	// wgpuAdapterInfoFreeMembers.
 	WGPUAdapterInfo info = {};
 	info.nextInChain = nullptr;
-	if (wgpuAdapterGetInfo(adapter, &info) == WGPUStatus_Success) {
+	if (wgpuAdapterGetInfo(adapter, &info) == WGPUStatus_Success)
+	{
 		std::cout << "Adapter info:" << std::endl;
 		std::cout << " - vendorID: " << info.vendorID << std::endl;
 		std::cout << " - vendor: " << toStdStringView(info.vendor) << std::endl;
@@ -130,35 +144,38 @@ void inspectAdapter(WGPUAdapter adapter) {
 	}
 }
 
-int main (int, char**) {
-    // We create a descriptor
-    WGPUInstanceDescriptor desc = {};
-    desc.nextInChain = nullptr;
-    // Needed so wgpuInstanceWaitAny can wait with a timeout (used in requestAdapterSync)
-    WGPUInstanceFeatureName requiredFeatures[] = { WGPUInstanceFeatureName_TimedWaitAny };
-    desc.requiredFeatureCount = 1;
-    desc.requiredFeatures = requiredFeatures;
+int main(int, char**)
+{
+	// We create a descriptor
+	WGPUInstanceDescriptor desc = {};
+	desc.nextInChain = nullptr;
+	// Needed so wgpuInstanceWaitAny can wait with a timeout (used in requestAdapterSync)
+	WGPUInstanceFeatureName requiredFeatures[] = { WGPUInstanceFeatureName_TimedWaitAny };
+	desc.requiredFeatureCount = 1;
+	desc.requiredFeatures = requiredFeatures;
 
-    // We create the instance using this descriptor
-    WGPUInstance instance = wgpuCreateInstance(&desc);
+	// We create the instance using this descriptor
+	WGPUInstance instance = wgpuCreateInstance(&desc);
 
-    // We can check whether there is actually an instance created
-    if (!instance) {
-        std::cerr << "Could not initialize WebGPU!" << std::endl;
-        return 1;
-    }
+	// We can check whether there is actually an instance created
+	if (!instance)
+	{
+		std::cerr << "Could not initialize WebGPU!" << std::endl;
+		return 1;
+	}
 
-    // Display the object (WGPUInstance is a simple pointer, it may be
-    // copied around without worrying about its size).
-    std::cout << "WGPU instance: " << instance << std::endl;
+	// Display the object (WGPUInstance is a simple pointer, it may be
+	// copied around without worrying about its size).
+	std::cout << "WGPU instance: " << instance << std::endl;
 
-    std::cout << "Requesting adapter..." << std::endl;
+	std::cout << "Requesting adapter..." << std::endl;
 	WGPURequestAdapterOptions adapterOpts = {};
 	adapterOpts.nextInChain = nullptr;
 	WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
 
 	// The request can fail (e.g. no supported GPU), in which case adapter is null
-	if (!adapter) {
+	if (!adapter)
+	{
 		std::cerr << "Could not get a WebGPU adapter!" << std::endl;
 		wgpuInstanceRelease(instance);
 		return 1;
@@ -168,10 +185,10 @@ int main (int, char**) {
 	// Display some information about the adapter
 	inspectAdapter(adapter);
 
-    // We no longer need to use the instance once we have the adapter
-    wgpuInstanceRelease(instance);
+	// We no longer need to use the instance once we have the adapter
+	wgpuInstanceRelease(instance);
 
-    wgpuAdapterRelease(adapter);
+	wgpuAdapterRelease(adapter);
 
-    return 0;
+	return 0;
 }
