@@ -7,3 +7,11 @@ indent_style = tab
 indent_size = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+# Microsoft C/C++ formatter only; other formatters ignore these.
+[*.{cpp,h,hpp}]
+cpp_new_line_before_open_brace_namespace = new_line
+cpp_new_line_before_open_brace_type = new_line
+cpp_new_line_before_open_brace_function = new_line
+cpp_new_line_before_open_brace_block = new_line
+cpp_new_line_before_open_brace_lambda = new_line
