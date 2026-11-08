@@ -89,7 +89,7 @@ endif()
 # Include webgpu directory, to define the 'webgpu' target
 add_subdirectory(webgpu)
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/webgpu-utils.cpp)
 
 # Treat warnings as errors for our own code only, not for dependencies like Dawn
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
