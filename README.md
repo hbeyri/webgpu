@@ -83,7 +83,7 @@ cmake --preset debug -DWEBGPU_BACKEND=WGPU
 
 `WGPU` uses [wgpu-native](https://github.com/gfx-rs/wgpu-native), Firefox's implementation.
 
-Prebuilt Dawn only exists for some versions. To use it, set both options, for example `-DWEBGPU_BUILD_FROM_SOURCE=OFF -DDAWN_VERSION=7187`. The prebuilt binaries come from [eliemichel/dawn-prebuilt](https://github.com/eliemichel/dawn-prebuilt), and Dawn is then a shared library copied next to `webgpuapp` (`libwebgpu_dawn.dylib` on macOS). Note that `main.cpp` is written for the API of Dawn 8059. Other versions may need code changes, for example 7187 uses `capabilities.timedWaitAnyEnable` instead of `requiredFeatures` in `WGPUInstanceDescriptor`.
+Prebuilt Dawn only exists for some versions. To use it, set both options, for example `-DWEBGPU_BUILD_FROM_SOURCE=OFF -DDAWN_VERSION=7187`. The prebuilt binaries come from [eliemichel/dawn-prebuilt](https://github.com/eliemichel/dawn-prebuilt), and Dawn is then a shared library copied next to `webgpuapp` (`libwebgpu_dawn.dylib` on macOS). Note that `src/main.cpp` is written for the API of Dawn 8059. Other versions may need code changes, for example 7187 uses `capabilities.timedWaitAnyEnable` instead of `requiredFeatures` in `WGPUInstanceDescriptor`.
 
 Options are saved in the build folder's cache. To switch an existing build folder back to the defaults, configure it with `cmake --preset debug --fresh`.
 
@@ -120,7 +120,7 @@ Dawn has no numbered releases. Each Chrome version is built from a Dawn branch n
    cmake --preset debug -DDAWN_VERSION=<number>
    ```
 
-5. **Build and fix API changes.** Dawn's API changes between versions, so `main.cpp` may need updates. The header your code is compiled against is `build/<preset>/_deps/dawn-build/gen/include/dawn/webgpu.h`.
+5. **Build and fix API changes.** Dawn's API changes between versions, so `src/main.cpp` may need updates. The header your code is compiled against is `build/<preset>/_deps/dawn-build/gen/include/dawn/webgpu.h`.
 
 6. **Repeat step 4 for the other presets** (for example `release`). They reuse the source downloaded in step 4.
 

@@ -141,7 +141,7 @@ int main (int, char**) {
 
     // We create the instance using this descriptor
     WGPUInstance instance = wgpuCreateInstance(&desc);
-    
+
     // We can check whether there is actually an instance created
     if (!instance) {
         std::cerr << "Could not initialize WebGPU!" << std::endl;
