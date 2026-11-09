@@ -101,6 +101,56 @@ int main(int, char**)
 	// Display information about the device
 	inspectDevice(device);
 
+	// The queue is how we send work to the GPU. This call adds a reference, so
+	// the queue must be released even though it belongs to the device.
+	WGPUQueue queue = wgpuDeviceGetQueue(device);
+	std::cout << "Got queue: " << queue << std::endl;
+
+	// The encoder records commands on the CPU side
+	WGPUCommandEncoderDescriptor encoderDesc = {};
+	encoderDesc.nextInChain = nullptr;
+	encoderDesc.label = toWGPUStringView("My command encoder");
+	WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(device, &encoderDesc);
+
+	// Debug markers label points in the command stream for GPU debugging tools
+	wgpuCommandEncoderInsertDebugMarker(encoder, toWGPUStringView("Do one thing"));
+	wgpuCommandEncoderInsertDebugMarker(encoder, toWGPUStringView("Do another thing"));
+
+	// Finishing the encoder turns what it recorded into a command buffer. The
+	// encoder cannot be used after this, so it can be released right away.
+	WGPUCommandBufferDescriptor commandBufferDesc = {};
+	commandBufferDesc.nextInChain = nullptr;
+	commandBufferDesc.label = toWGPUStringView("My command buffer");
+	WGPUCommandBuffer commandBuffer = wgpuCommandEncoderFinish(encoder, &commandBufferDesc);
+	wgpuCommandEncoderRelease(encoder); // release encoder after it's finished
+
+	// Send the command buffer to the GPU. It can only be submitted once, so it
+	// can be released right after.
+	std::cout << "Submitting command buffer..." << std::endl;
+	wgpuQueueSubmit(queue, 1, &commandBuffer);
+	wgpuCommandBufferRelease(commandBuffer);
+
+	// Called once all the work submitted to the queue so far has finished
+	WGPUQueueWorkDoneCallbackInfo workDoneCallbackInfo = {};
+	workDoneCallbackInfo.nextInChain = nullptr;
+	workDoneCallbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
+	workDoneCallbackInfo.callback = [](WGPUQueueWorkDoneStatus status, WGPUStringView /* message */, void* /* pUserData1 */, void* /* pUserData2 */)
+		{
+			std::cout << "Queued work finished with status: " << status << std::endl;
+		};
+	WGPUFuture workDoneFuture = wgpuQueueOnSubmittedWorkDone(queue, workDoneCallbackInfo);
+
+	// Without this wait the callback would never run, since WaitAnyOnly only
+	// runs it from inside wgpuInstanceWaitAny.
+	WGPUFutureWaitInfo workDoneWaitInfo = {};
+	workDoneWaitInfo.future = workDoneFuture;
+	workDoneWaitInfo.completed = false;
+	if (wgpuInstanceWaitAny(instance, 1, &workDoneWaitInfo, UINT64_MAX) != WGPUWaitStatus_Success)
+	{
+		std::cout << "Waiting for the queued work failed" << std::endl;
+	}
+
+	wgpuQueueRelease(queue);
 	wgpuDeviceRelease(device);
 
 	// Released last, since waiting on asynchronous work needs the instance
