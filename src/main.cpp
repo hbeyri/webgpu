@@ -1,6 +1,7 @@
 #include "webgpu-utils.h"
 
 #include <webgpu/webgpu.h>
+#include <GLFW/glfw3.h>
 
 #include <iostream>
 

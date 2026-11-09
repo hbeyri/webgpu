@@ -86,6 +86,18 @@ if(WEBGPU_BACKEND_UPPER STREQUAL "DAWN" AND WEBGPU_BUILD_FROM_SOURCE
     set(FETCHCONTENT_SOURCE_DIR_DAWN "${DAWN_SHARED_SOURCE_DIR}")
 endif()
 
+# Need to add glfw folder before adding webgpu folder, otherwise Dawn provides
+# its own version
+if (NOT EMSCRIPTEN)
+    # Add the 'glfw' directory, which contains the definition of a 'glfw' target
+    add_subdirectory(glfw)
+else()
+    # Create a mock 'glfw' target that just sets the `-sUSE_GLFW=3` link option:
+    add_library(glfw INTERFACE)
+    target_link_options(glfw INTERFACE -sUSE_GLFW=3)
+endif()
+# In both cases, we can now link to the 'glfw' target
+
 # Include webgpu directory, to define the 'webgpu' target
 add_subdirectory(webgpu)
 
@@ -93,6 +105,9 @@ add_executable(${PROJECT_NAME} src/main.cpp src/webgpu-utils.cpp)
 
 # Treat warnings as errors for our own code only, not for dependencies like Dawn
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+
+# Add the 'glfw' target as a dependency of our App
+target_link_libraries(${PROJECT_NAME} PRIVATE webgpu glfw)
 
 # Add the 'webgpu' target as a dependency of our App
 target_link_libraries(${PROJECT_NAME} PRIVATE webgpu)
