@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(webgpuapp LANGUAGES CXX)
+project(webgpuapp LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -101,16 +101,15 @@ endif()
 # Include webgpu directory, to define the 'webgpu' target
 add_subdirectory(webgpu)
 
+add_subdirectory(glfw3webgpu)
+
 add_executable(${PROJECT_NAME} src/main.cpp src/webgpu-utils.cpp)
 
 # Treat warnings as errors for our own code only, not for dependencies like Dawn
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
 
 # Add the 'glfw' target as a dependency of our App
-target_link_libraries(${PROJECT_NAME} PRIVATE webgpu glfw)
-
-# Add the 'webgpu' target as a dependency of our App
-target_link_libraries(${PROJECT_NAME} PRIVATE webgpu)
+target_link_libraries(${PROJECT_NAME} PRIVATE webgpu glfw glfw3webgpu)
 
 # When WebGPU is a shared library (.dll/.so/.dylib), the application's binary
 # must find it at runtime, so we copy it next to the binary. Dawn built from
