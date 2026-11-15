@@ -7,8 +7,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Use Dawn as the default WebGPU backend; override with -DWEBGPU_BACKEND=WGPU
-set(WEBGPU_BACKEND "DAWN" CACHE STRING "Backend implementation of WebGPU. Possible values are EMSCRIPTEN, EMDAWNWEBGPU, WGPU and DAWN")
+# Use Dawn as the default WebGPU backend; override with -DWEBGPU_BACKEND=WGPU.
+# On the web (Emscripten) the browser provides WebGPU, so the backend is
+# emdawnwebgpu: Dawn's bindings from the C API to the browser's JavaScript API.
+if(EMSCRIPTEN)
+    set(WEBGPU_BACKEND "EMDAWNWEBGPU" CACHE STRING "Backend implementation of WebGPU. Possible values are EMSCRIPTEN, EMDAWNWEBGPU, WGPU and DAWN")
+else()
+    set(WEBGPU_BACKEND "DAWN" CACHE STRING "Backend implementation of WebGPU. Possible values are EMSCRIPTEN, EMDAWNWEBGPU, WGPU and DAWN")
+endif()
+
+# The emdawnwebgpu release to use on the web: a tag of github.com/google/dawn.
+# This one is the release closest to where the chromium/8059 branch (see
+# DAWN_VERSION below) was cut, so the API on the web matches the native one.
+set(EMDAWNWEBGPU_VERSION "v20260914.212600" CACHE STRING "Version of emdawnwebgpu to use: a release tag of github.com/google/dawn")
 
 # Build Dawn from source, using the branch that matches Chrome stable (Chrome 155)
 option(WEBGPU_BUILD_FROM_SOURCE "Build the WebGPU backend from source instead of downloading a prebuilt one" ON)
@@ -143,3 +154,12 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -fno-rtti -fno-exceptions)
 endif()
 
+# Options that are specific to Emscripten
+if (EMSCRIPTEN)
+    # Generate a full web page rather than a simple WebAssembly module
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+    # Let C++ code pause while the browser finishes asynchronous work. Needed by
+    # wgpuInstanceWaitAny with a timeout (used in requestAdapterSync and
+    # requestDeviceSync), and it also enables emscripten_sleep()
+    target_link_options(${PROJECT_NAME} PRIVATE -sASYNCIFY)
+endif()

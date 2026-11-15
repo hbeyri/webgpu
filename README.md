@@ -8,6 +8,7 @@ A C++20 project built with CMake and Ninja.
 - Ninja
 - A C++20 compiler (Clang, GCC or MSVC)
 - Git, Python 3 and an internet connection the first time you configure (to download and build Dawn, see below)
+- [Emscripten](https://emscripten.org) for the web build only (see [Web build](#web-build))
 
 ## Build
 
@@ -58,6 +59,38 @@ For the release build, replace `debug` with `release`.
 
 Use `./build/release/webgpuapp` for the release build.
 
+## Web build
+
+The same code also builds to WebAssembly with [Emscripten](https://emscripten.org), to run in a browser. Install Emscripten first (for example `brew install emscripten`, or with [emsdk](https://emscripten.org/docs/getting_started/downloads.html)).
+
+Configure through `emcmake`, which tells CMake to use the Emscripten compiler, then build as usual:
+
+```bash
+emcmake cmake --preset web-debug
+cmake --build --preset web-debug
+```
+
+| Preset        | Build type | Output folder        |
+|---------------|------------|----------------------|
+| `web-debug`   | Debug      | `build/web-debug`    |
+| `web-release` | Release    | `build/web-release`  |
+
+The build produces `webgpuapp.html`, `webgpuapp.js` and `webgpuapp.wasm`. A browser can't load them from a `file://` path, so serve them over HTTP. `emrun` comes with Emscripten, starts a local server and opens the page:
+
+```bash
+emrun build/web-debug/webgpuapp.html
+```
+
+The program's output shows up in the text box on the page and in the browser console. The browser must support WebGPU (Chrome, Edge, and recent versions of Safari and Firefox).
+
+What is different on the web:
+
+- The browser provides WebGPU, so Dawn is not downloaded or built. The backend is [emdawnwebgpu](https://dawn.googlesource.com/dawn/+/refs/heads/main/src/emdawnwebgpu/pkg/README.md) instead, Dawn's bindings from `webgpu.h` to the browser's JavaScript API. `WEBGPU_BACKEND` defaults to `EMDAWNWEBGPU` when configuring with `emcmake`.
+- emdawnwebgpu is downloaded from a [Dawn release](https://github.com/google/dawn/releases) into the build folder, a few hundred kilobytes. `EMDAWNWEBGPU_VERSION` in `CMakeLists.txt` picks the release. It is set to `v20260914.212600`, the release closest to where the `chromium/8059` branch was cut, so the API matches the native build.
+- GLFW comes from Emscripten (`-sUSE_GLFW=3`) instead of the [`glfw/`](glfw) folder.
+- The program is linked with `-sASYNCIFY`. Browsers finish WebGPU requests asynchronously, and this lets `wgpuInstanceWaitAny` wait for them, which `requestAdapterSync` and `requestDeviceSync` rely on.
+- Code under `#ifdef WEBGPU_BACKEND_DAWN` (the Dawn toggles) is left out. Use `WEBGPU_BACKEND_EMDAWNWEBGPU` or `__EMSCRIPTEN__` for web-only code.
+
 ## WebGPU dependency
 
 WebGPU comes from the [`webgpu/`](webgpu) folder, a copy of [WebGPU-distribution](https://github.com/eliemichel/WebGPU-distribution) `v0.3.0-gamma` from the Learn WebGPU for C++ guide. It defines the `webgpu` CMake target that `webgpuapp` links against, and also provides the `webgpu.hpp` C++ wrapper.
@@ -80,6 +113,7 @@ cmake --preset debug -DWEBGPU_BACKEND=WGPU
 | `WEBGPU_BACKEND`           | `DAWN`, `WGPU`           | `DAWN`   | Which WebGPU implementation to use                         |
 | `WEBGPU_BUILD_FROM_SOURCE` | `ON`, `OFF`              | `ON`     | Build Dawn from source (`ON`) or download a prebuilt one (`OFF`) |
 | `DAWN_VERSION`             | a Dawn branch number     | `8059`   | Which `chromium/<number>` branch of Dawn to use            |
+| `EMDAWNWEBGPU_VERSION`     | a Dawn release tag       | `v20260914.212600` | Which emdawnwebgpu release the [web build](#web-build) uses |
 
 `WGPU` uses [wgpu-native](https://github.com/gfx-rs/wgpu-native), Firefox's implementation.
 
@@ -123,6 +157,8 @@ Dawn has no numbered releases. Each Chrome version is built from a Dawn branch n
 5. **Build and fix API changes.** Dawn's API changes between versions, so the code in `src/` may need updates. The header your code is compiled against is `build/<preset>/_deps/dawn-build/gen/include/dawn/webgpu.h`.
 
 6. **Repeat step 4 for the other presets** (for example `release`). They reuse the source downloaded in step 4.
+
+7. **Update the web build.** Set `EMDAWNWEBGPU_VERSION` in `CMakeLists.txt` to the [Dawn release](https://github.com/google/dawn/releases) closest to where the new branch was cut. Release tags are dates (`v<year><month><day>.<time>`). The branch's [commit log](https://dawn.googlesource.com/dawn/+log/refs/heads/chromium/8059) shows when it was cut: it is the newest commit whose title doesn't start with a milestone tag like `[M155]`. Then configure with `emcmake cmake --preset web-debug -DEMDAWNWEBGPU_VERSION=<tag>` and build.
 
 Once everything builds, you can delete the old `build/_shared/dawn-<old number>` folder and the old patch.
 
