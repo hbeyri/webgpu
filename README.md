@@ -1,6 +1,10 @@
 # webgpu
 
+[![CI](https://github.com/hbeyri/webgpu/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hbeyri/webgpu/actions/workflows/ci.yml)
+
 A C++20 project built with CMake and Ninja.
+
+**Live web build:** <https://hbeyri.github.io/webgpu/> (needs a browser with WebGPU). CI publishes it from `main` after every push that builds. To build it yourself, see [Web build](#web-build).
 
 ## Requirements
 
