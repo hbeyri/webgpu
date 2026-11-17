@@ -109,18 +109,34 @@ else()
 endif()
 # In both cases, we can now link to the 'glfw' target
 
-# Include webgpu directory, to define the 'webgpu' target
 add_subdirectory(webgpu)
-
 add_subdirectory(glfw3webgpu)
+add_subdirectory(doctest)
 
-add_executable(${PROJECT_NAME} src/main.cpp src/webgpu-utils.cpp)
+# Every source file except main.cpp. Also compiled into the tests.
+set(WEBGPUAPP_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/webgpu-utils.cpp"
+)
 
-# Treat warnings as errors for our own code only, not for dependencies like Dawn
-set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+add_executable(${PROJECT_NAME} src/main.cpp ${WEBGPUAPP_SOURCES})
 
-# Add the 'glfw' target as a dependency of our App
-target_link_libraries(${PROJECT_NAME} PRIVATE webgpu glfw glfw3webgpu)
+# Warning flags for our own code only, not for dependencies like Dawn
+function(webgpuapp_set_warnings target)
+    # Treat warnings as errors
+    set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
+            -Wno-missing-braces -Wno-switch)
+    endif()
+endfunction()
+webgpuapp_set_warnings(${PROJECT_NAME})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE webgpu glfw glfw3webgpu doctest)
+
+# Leave the unit tests out of the app
+target_compile_definitions(${PROJECT_NAME} PRIVATE DOCTEST_CONFIG_DISABLE)
 
 # When WebGPU is a shared library (.dll/.so/.dylib), the application's binary
 # must find it at runtime, so we copy it next to the binary. Dawn built from
@@ -134,13 +150,6 @@ if(TARGET webgpu_dawn)
 endif()
 if(NOT webgpu_is_static_dawn)
     target_copy_webgpu_binaries(${PROJECT_NAME})
-endif()
-
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
-else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
-        -Wno-missing-braces -Wno-switch)
 endif()
 
 # Disable RTTI and exceptions
@@ -162,4 +171,10 @@ if (EMSCRIPTEN)
     # wgpuInstanceWaitAny with a timeout (used in requestAdapterSync and
     # requestDeviceSync), and it also enables emscripten_sleep()
     target_link_options(${PROJECT_NAME} PRIVATE -sASYNCIFY)
+endif()
+
+# Unit tests (native builds only), run with: ctest --preset debug
+if(NOT EMSCRIPTEN)
+    enable_testing()
+    add_subdirectory(tests)
 endif()

@@ -63,6 +63,54 @@ For the release build, replace `debug` with `release`.
 
 Use `./build/release/webgpuapp` for the release build.
 
+## Test
+
+The unit tests use [doctest](https://github.com/doctest/doctest) and are written in the source files themselves, next to the code they test, not in separate test files. There are no test cases yet, only the setup. Run the tests with CTest after building:
+
+```bash
+ctest --preset debug
+```
+
+Use `ctest --preset release` for the release build. CI runs the tests for both presets.
+
+To add a test, include doctest in a `.cpp` file in `src/` and write a `TEST_CASE` below the code:
+
+```cpp
+#include <doctest/doctest.h>
+
+int add(int a, int b)
+{
+	return a + b;
+}
+
+TEST_CASE("add")
+{
+	CHECK(add(1, 1) == 2);   // on failure: reports it and continues
+	REQUIRE(add(1, 1) == 2); // on failure: reports it and stops this test case
+}
+```
+
+Each `TEST_CASE` registers itself, so there is no list of tests to maintain.
+
+How it works:
+
+- The source files listed in `WEBGPUAPP_SOURCES` in [`CMakeLists.txt`](CMakeLists.txt) are compiled twice: into `webgpuapp`, and into the test executable `webgpuapp_tests`. Add new source files to that list so their tests are built.
+- `webgpuapp` is compiled with `DOCTEST_CONFIG_DISABLE`, which makes `TEST_CASE` and the assertion macros compile to nothing. No test code ends up in the app or in the web build.
+- [`tests/main.cpp`](tests/main.cpp) holds doctest's implementation and the `main()` of `webgpuapp_tests`. That is all the [`tests/`](tests) folder is for.
+- doctest is a single header, kept in [`doctest/`](doctest) (version 2.5.3).
+
+Things to know:
+
+- `src/main.cpp` can't hold tests, because the test executable has its own `main()`. Put code you want to test in another file.
+- A helper function that only the tests use is unused in the app, which is a compile error there (`-Wunused-function`). Wrap such helpers in `#ifndef DOCTEST_CONFIG_DISABLE` ... `#endif`.
+- The tests are only built for the native presets, not for the web build.
+
+Running the test executable directly gives doctest's own output and options, for example to run only some test cases:
+
+```bash
+./build/debug/tests/webgpuapp_tests --test-case="*some name*"
+```
+
 ## Web build
 
 The same code also builds to WebAssembly with [Emscripten](https://emscripten.org), to run in a browser. Install Emscripten first (for example `brew install emscripten`, or with [emsdk](https://emscripten.org/docs/getting_started/downloads.html)).
@@ -182,3 +230,5 @@ This means:
 - `dynamic_cast` and `typeid` on polymorphic types don't compile.
 - `try`, `catch` and `throw` don't compile.
 - Standard library calls that would normally throw (for example a failed `new` or `std::vector::at` out of range) terminate the program instead.
+
+The [test executable](#test) is the exception: for it, the files in `src/` are compiled a second time with RTTI and exceptions enabled, because doctest uses an exception to stop a test case when a `REQUIRE` fails.

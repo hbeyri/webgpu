@@ -78,6 +78,11 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
 
+      # The unit tests, written in the source files in src/. They don't create
+      # a WebGPU device, so they don't need a GPU on the runner.
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
       - name: Show compiler cache statistics
         if: always()
         run: ccache --show-stats

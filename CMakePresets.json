@@ -33,5 +33,17 @@
     { "name": "release", "configurePreset": "release" },
     { "name": "web-debug", "configurePreset": "web-debug" },
     { "name": "web-release", "configurePreset": "web-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": { "outputOnFailure": true }
+    }
   ]
 }
