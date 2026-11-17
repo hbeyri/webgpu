@@ -89,3 +89,57 @@ jobs:
         with:
           path: .ccache
           key: ccache-${{ runner.os }}-${{ matrix.preset }}-${{ steps.versions.outputs.compiler }}-${{ github.sha }}
+
+  # The WebAssembly build. Dawn is not built here: the browser provides WebGPU.
+  web:
+    name: Web (release)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja and Emscripten
+        run: brew install ninja emscripten
+
+      - name: Configure
+        run: emcmake cmake --preset web-release
+
+      - name: Build
+        run: cmake --build --preset web-release
+
+      # GitHub Pages serves index.html at the site's address, so the page is
+      # renamed. It loads webgpuapp.js, which loads webgpuapp.wasm.
+      - name: Collect the files for the web page
+        run: |
+          mkdir site
+          cp build/web-release/webgpuapp.html site/index.html
+          cp build/web-release/webgpuapp.js build/web-release/webgpuapp.wasm site/
+
+      - name: Upload the web page
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  # Publish the web build to GitHub Pages, only from main and only when every
+  # build above passed. The repository's Pages source must be "GitHub Actions"
+  # (Settings > Pages).
+  deploy:
+    name: Publish web page
+    if: github.ref == 'refs/heads/main'
+    needs: [macos, web]
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
