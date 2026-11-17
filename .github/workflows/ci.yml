@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run for the older one
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS (${{ matrix.preset }})
+    runs-on: macos-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [debug, release]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja and ccache
+        run: brew install ninja ccache
+
+      # The values the caches below depend on
+      - name: Read Dawn and compiler versions
+        id: versions
+        run: |
+          dawn=$(sed -n 's/^set(DAWN_VERSION "\([0-9]*\)".*/\1/p' CMakeLists.txt)
+          test -n "$dawn" || { echo "DAWN_VERSION not found in CMakeLists.txt"; exit 1; }
+          echo "dawn=$dawn" >> "$GITHUB_OUTPUT"
+          echo "compiler=$(c++ --version | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+
+      # The Dawn source and its dependencies (about 1 GB), downloaded by the
+      # first configure. It only changes with the Dawn version or the patches.
+      - name: Restore Dawn source
+        id: dawn-src
+        uses: actions/cache/restore@v6
+        with:
+          path: build/_shared
+          key: dawn-src-${{ runner.os }}-${{ steps.versions.outputs.dawn }}-${{ hashFiles('cmake/patches/**', 'webgpu/dawn/**') }}
+
+      # Compiled object files. Building Dawn is most of the build time, and with
+      # this only the files that changed since the last run are compiled again.
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ matrix.preset }}-${{ steps.versions.outputs.compiler }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ matrix.preset }}-${{ steps.versions.outputs.compiler }}-
+
+      - name: Configure
+        run: >
+          cmake --preset ${{ matrix.preset }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Save Dawn source
+        if: steps.dawn-src.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: build/_shared
+          key: ${{ steps.dawn-src.outputs.cache-primary-key }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Show compiler cache statistics
+        if: always()
+        run: ccache --show-stats
+
+      # Saved even when the build fails, so the next run doesn't start from zero
+      - name: Save compiler cache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ matrix.preset }}-${{ steps.versions.outputs.compiler }}-${{ github.sha }}
