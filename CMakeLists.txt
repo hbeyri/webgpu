@@ -115,6 +115,8 @@ add_subdirectory(doctest)
 
 # Every source file except main.cpp. Also compiled into the tests.
 set(WEBGPUAPP_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/core/Abort.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/core/Result.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/webgpu-utils.cpp"
 )
 

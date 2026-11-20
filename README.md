@@ -65,7 +65,7 @@ Use `./build/release/webgpuapp` for the release build.
 
 ## Test
 
-The unit tests use [doctest](https://github.com/doctest/doctest) and are written in the source files themselves, next to the code they test, not in separate test files. There are no test cases yet, only the setup. Run the tests with CTest after building:
+The unit tests use [doctest](https://github.com/doctest/doctest) and are written in the source files themselves, next to the code they test, not in separate test files. See [`src/core/Result.cpp`](src/core/Result.cpp) for an example. Run the tests with CTest after building:
 
 ```bash
 ctest --preset debug
@@ -73,21 +73,25 @@ ctest --preset debug
 
 Use `ctest --preset release` for the release build. CI runs the tests for both presets.
 
-To add a test, include doctest in a `.cpp` file in `src/` and write a `TEST_CASE` below the code:
+To add a test, write a `TEST_CASE` below the code in a `.cpp` file in `src/`, inside an `#ifndef DOCTEST_CONFIG_DISABLE` block:
 
 ```cpp
-#include <doctest/doctest.h>
-
 int add(int a, int b)
 {
 	return a + b;
 }
+
+#ifndef DOCTEST_CONFIG_DISABLE
+
+#include <doctest/doctest.h>
 
 TEST_CASE("add")
 {
 	CHECK(add(1, 1) == 2);   // on failure: reports it and continues
 	REQUIRE(add(1, 1) == 2); // on failure: reports it and stops this test case
 }
+
+#endif // DOCTEST_CONFIG_DISABLE
 ```
 
 Each `TEST_CASE` registers itself, so there is no list of tests to maintain.
@@ -102,7 +106,8 @@ How it works:
 Things to know:
 
 - `src/main.cpp` can't hold tests, because the test executable has its own `main()`. Put code you want to test in another file.
-- A helper function that only the tests use is unused in the app, which is a compile error there (`-Wunused-function`). Wrap such helpers in `#ifndef DOCTEST_CONFIG_DISABLE` ... `#endif`.
+- The `#ifndef DOCTEST_CONFIG_DISABLE` block is needed because the app still compiles the body of a `TEST_CASE`, with the assertions removed. Without the block, a variable or helper function that only the assertions use is unused in the app, which is a compile error there.
+- The tests for a template in a header go in a `.cpp` file next to it, like `src/core/Result.cpp` for `src/core/Result.h`.
 - The tests are only built for the native presets, not for the web build.
 
 Running the test executable directly gives doctest's own output and options, for example to run only some test cases:
@@ -230,5 +235,6 @@ This means:
 - `dynamic_cast` and `typeid` on polymorphic types don't compile.
 - `try`, `catch` and `throw` don't compile.
 - Standard library calls that would normally throw (for example a failed `new` or `std::vector::at` out of range) terminate the program instead.
+- A function that can fail returns an `HB::Result<T, E>` instead of throwing, a C++ version of Rust's `Result`. See [`src/core/Result.h`](src/core/Result.h).
 
 The [test executable](#test) is the exception: for it, the files in `src/` are compiled a second time with RTTI and exceptions enabled, because doctest uses an exception to stop a test case when a `REQUIRE` fails.
