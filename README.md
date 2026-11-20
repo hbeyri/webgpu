@@ -101,7 +101,8 @@ How it works:
 - The source files listed in `WEBGPUAPP_SOURCES` in [`CMakeLists.txt`](CMakeLists.txt) are compiled twice: into `webgpuapp`, and into the test executable `webgpuapp_tests`. Add new source files to that list so their tests are built.
 - `webgpuapp` is compiled with `DOCTEST_CONFIG_DISABLE`, which makes `TEST_CASE` and the assertion macros compile to nothing. No test code ends up in the app or in the web build.
 - [`tests/main.cpp`](tests/main.cpp) holds doctest's implementation and the `main()` of `webgpuapp_tests`. That is all the [`tests/`](tests) folder is for.
-- doctest is a single header, kept in [`doctest/`](doctest) (version 2.5.3).
+- Each `TEST_CASE` is a separate CTest test, so `ctest` and the VS Code Testing view list and run them one by one. After each build, `doctest_discover_tests` in [`tests/CMakeLists.txt`](tests/CMakeLists.txt) runs `webgpuapp_tests --list-test-cases` to find them.
+- doctest is a single header, kept in [`doctest/`](doctest) (version 2.5.3), with its CMake scripts for `doctest_discover_tests` in [`doctest/cmake/`](doctest/cmake).
 
 Things to know:
 

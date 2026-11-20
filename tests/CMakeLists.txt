@@ -16,4 +16,9 @@ if(MSVC)
     target_compile_options(webgpuapp_tests PRIVATE /EHsc)
 endif()
 
-add_test(NAME webgpuapp_tests COMMAND webgpuapp_tests)
+# Register each TEST_CASE as its own CTest test, so CTest and the VS Code
+# Testing view list and run them one by one. After each build, the test
+# executable is run with --list-test-cases to find them, so adding a TEST_CASE
+# doesn't need CMake to be re-run.
+include("${PROJECT_SOURCE_DIR}/doctest/cmake/doctest.cmake")
+doctest_discover_tests(webgpuapp_tests)
