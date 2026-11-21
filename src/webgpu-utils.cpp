@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <iostream>
 
-std::string_view toStdStringView(WGPUStringView view)
+HB::CStringView toCStringView(WGPUStringView view)
 {
 	if (!view.data)
 	{
@@ -12,9 +12,9 @@ std::string_view toStdStringView(WGPUStringView view)
 	}
 	if (view.length == WGPU_STRLEN)
 	{
-		return std::string_view(view.data);
+		return HB::CStringView(view.data);
 	}
-	return std::string_view(view.data, view.length);
+	return HB::CStringView(view.data, view.length);
 }
 
 WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions const* options)
@@ -45,7 +45,7 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 			}
 			else
 			{
-				std::cout << "Could not get WebGPU adapter: " << toStdStringView(message) << std::endl;
+				std::cout << "Could not get WebGPU adapter: " << toCStringView(message) << std::endl;
 			}
 			userData.requestEnded = true;
 		};
@@ -122,11 +122,11 @@ void inspectAdapter(WGPUAdapter adapter)
 	{
 		std::cout << "Adapter info:" << std::endl;
 		std::cout << " - vendorID: " << info.vendorID << std::endl;
-		std::cout << " - vendor: " << toStdStringView(info.vendor) << std::endl;
-		std::cout << " - architecture: " << toStdStringView(info.architecture) << std::endl;
+		std::cout << " - vendor: " << toCStringView(info.vendor) << std::endl;
+		std::cout << " - architecture: " << toCStringView(info.architecture) << std::endl;
 		std::cout << " - deviceID: " << info.deviceID << std::endl;
-		std::cout << " - device: " << toStdStringView(info.device) << std::endl;
-		std::cout << " - description: " << toStdStringView(info.description) << std::endl;
+		std::cout << " - device: " << toCStringView(info.device) << std::endl;
+		std::cout << " - description: " << toCStringView(info.description) << std::endl;
 		std::cout << std::hex;
 		std::cout << " - adapterType: 0x" << info.adapterType << std::endl;
 		std::cout << " - backendType: 0x" << info.backendType << std::endl;
@@ -153,7 +153,7 @@ WGPUDevice requestDeviceSync(WGPUInstance instance, WGPUAdapter adapter, WGPUDev
 			}
 			else
 			{
-				std::cout << "Could not get WebGPU device: " << toStdStringView(message) << std::endl;
+				std::cout << "Could not get WebGPU device: " << toCStringView(message) << std::endl;
 			}
 			userData.requestEnded = true;
 		};

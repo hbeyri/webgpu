@@ -15,7 +15,7 @@ CString::CString(char const* text)
 	{
 		Abort();
 	}
-	Append(std::string_view(text));
+	Append(CStringView(text));
 }
 
 CString::CString(char const* text, SizeType length)
@@ -24,10 +24,10 @@ CString::CString(char const* text, SizeType length)
 	{
 		Abort();
 	}
-	Append(std::string_view(text, length));
+	Append(CStringView(text, length));
 }
 
-CString::CString(std::string_view text)
+CString::CString(CStringView text)
 {
 	Append(text);
 }
@@ -68,44 +68,44 @@ char const& CString::operator[](SizeType index) const
 	return m_Chars[index];
 }
 
-void CString::Append(std::string_view text)
+void CString::Append(CStringView text)
 {
-	if (text.empty())
+	if (text.IsEmpty())
 	{
 		return;
 	}
 
 	SizeType const oldLength = GetLength();
-	if (text.size() > std::numeric_limits<SizeType>::max() - 1 - oldLength)
+	if (text.GetLength() > std::numeric_limits<SizeType>::max() - 1 - oldLength)
 	{
 		// The length and the '\0' wouldn't fit in SizeType
 		Abort();
 	}
-	SizeType const newLength = oldLength + text.size();
+	SizeType const newLength = oldLength + text.GetLength();
 
 	// The text may be part of this string, and growing moves the chars to new
 	// memory. Remember where it is, to find it again afterwards.
 	// std::less gives a total order even for pointers into different objects.
 	char const* const oldData = m_Chars.GetData();
 	std::less<char const*> const less;
-	bool const isOwnText = !m_Chars.IsEmpty() && !less(text.data(), oldData)
-		&& less(text.data(), oldData + m_Chars.GetSize());
-	SizeType const ownOffset = isOwnText ? static_cast<SizeType>(text.data() - oldData) : 0;
+	bool const isOwnText = !m_Chars.IsEmpty() && !less(text.GetData(), oldData)
+		&& less(text.GetData(), oldData + m_Chars.GetSize());
+	SizeType const ownOffset = isOwnText ? static_cast<SizeType>(text.GetData() - oldData) : 0;
 
 	GrowFor(newLength);
 	// Doesn't allocate after GrowFor. The new chars start as '\0', so the
 	// last one is already the '\0' at the end.
 	m_Chars.Resize(newLength + 1);
 
-	char const* const source = isOwnText ? m_Chars.GetData() + ownOffset : text.data();
+	char const* const source = isOwnText ? m_Chars.GetData() + ownOffset : text.GetData();
 	// memmove, not memcpy: own text that includes the old '\0' overlaps the
 	// first char written
-	std::memmove(m_Chars.GetData() + oldLength, source, text.size());
+	std::memmove(m_Chars.GetData() + oldLength, source, text.GetLength());
 }
 
 void CString::Append(char c)
 {
-	Append(std::string_view(&c, 1));
+	Append(CStringView(&c, 1));
 }
 
 char* CString::begin()
@@ -159,21 +159,35 @@ void CString::CheckIndex(SizeType index) const
 #include <utility>
 
 using HB::CString;
+using HB::CStringView;
 
 namespace HB::String::Internals
 {
-	// A function that takes a std::string_view, to check that a CString can be
+	// A function that takes a CStringView, to check that a CString can be
 	// passed to it
-	std::size_t CountSpaces(std::string_view text)
+	std::size_t CountSpaces(CStringView text)
 	{
 		return static_cast<std::size_t>(std::count(text.begin(), text.end(), ' '));
+	}
+
+	// A view of a std::string, for the expected values in the tests
+	CStringView ToView(std::string const& text)
+	{
+		return CStringView(text.data(), text.size());
+	}
+
+	// count copies of c
+	CString Repeat(char c, CString::SizeType count)
+	{
+		std::string text(count, c);
+		return CString(ToView(text));
 	}
 
 	// A string that fills the inline buffer, so appending anything moves it to
 	// the heap
 	CString MakeFullInline()
 	{
-		CString text(std::string(CString::GetInlineCapacity(), 'a'));
+		CString text = Repeat('a', CString::GetInlineCapacity());
 		REQUIRE(text.GetCapacity() == text.GetLength());
 		return text;
 	}
@@ -191,6 +205,8 @@ namespace HB::String::Internals
 using HB::String::Internals::CountSpaces;
 using HB::String::Internals::IsInline;
 using HB::String::Internals::MakeFullInline;
+using HB::String::Internals::Repeat;
+using HB::String::Internals::ToView;
 
 // TSmallArray's three members, then the 16-char inline buffer
 static_assert(sizeof(CString) == 3 * sizeof(void*) + 16);
@@ -239,10 +255,10 @@ TEST_CASE("CString constructors")
 		CHECK(text.IsEmpty());
 	}
 
-	SUBCASE("from a std::string_view")
+	SUBCASE("from a CStringView")
 	{
-		std::string_view view = "hello world";
-		CString text(view.substr(6));
+		CStringView view = "hello world";
+		CString text(view.SubView(6));
 		CHECK(text == "world");
 	}
 }
@@ -290,7 +306,7 @@ TEST_CASE("CString::Append")
 	SUBCASE("the string itself, while it moves to the heap")
 	{
 		CString full = MakeFullInline();
-		std::string expected = std::string(full.GetView()) + std::string(full.GetView());
+		CString expected = Repeat('a', 2 * full.GetLength());
 		full.Append(full);
 		CHECK_FALSE(IsInline(full));
 		CHECK(full == expected);
@@ -301,16 +317,16 @@ TEST_CASE("CString::Append")
 		CString full = MakeFullInline();
 		full[1] = 'b';
 		full[2] = 'c';
-		std::string expected = std::string(full.GetView()) + "bc";
-		full.Append(full.GetView().substr(1, 2));
-		CHECK(full == expected);
+		std::string expected = std::string(full.begin(), full.end()) + "bc";
+		full.Append(full.GetView().SubView(1, 2));
+		CHECK(full == ToView(expected));
 	}
 
 	SUBCASE("the string itself including its '\\0'")
 	{
-		text.Append(std::string_view(text.GetCString(), text.GetLength() + 1));
+		text.Append(CStringView(text.GetCString(), text.GetLength() + 1));
 		CHECK(text.GetLength() == 7);
-		CHECK(text.GetView() == std::string_view("abcabc\0", 7));
+		CHECK(text.GetView() == CStringView("abcabc\0", 7));
 		CHECK(text.GetCString()[7] == '\0');
 	}
 
@@ -318,7 +334,7 @@ TEST_CASE("CString::Append")
 	{
 		CString full = MakeFullInline();
 		CString::SizeType length = full.GetLength();
-		full.Append(std::string_view(full.GetCString(), length + 1));
+		full.Append(CStringView(full.GetCString(), length + 1));
 		REQUIRE(full.GetLength() == 2 * length + 1);
 		CHECK(full[length - 1] == 'a');
 		CHECK(full[length] == 'a');
@@ -433,7 +449,7 @@ TEST_CASE("CString comparison")
 	CHECK(abc == "abc");
 	CHECK("abc" == abc);
 	CHECK(abc == CString("abc"));
-	CHECK(abc == std::string_view("abc"));
+	CHECK(abc == CStringView("abc"));
 	CHECK(abc != abd);
 	CHECK(abc != "ab");
 	CHECK(abc != "abcd");
@@ -452,13 +468,13 @@ TEST_CASE("CString comparison")
 	}
 }
 
-TEST_CASE("CString converts to std::string_view")
+TEST_CASE("CString converts to CStringView")
 {
 	CString text = "a b c";
 	CHECK(CountSpaces(text) == 2);
-	std::string_view view = text;
+	CStringView view = text;
 	CHECK(view == "a b c");
-	CHECK(view.data() == text.GetCString());
+	CHECK(view.GetData() == text.GetCString());
 }
 
 TEST_CASE("CString copies and moves")
@@ -533,7 +549,7 @@ TEST_CASE("CString keeps short strings inside itself")
 
 	SUBCASE("a long string stays on the heap when it gets shorter")
 	{
-		CString text(std::string(40, 'x'));
+		CString text = Repeat('x', 40);
 		CHECK_FALSE(IsInline(text));
 		text.Clear();
 		text.Append("short");
@@ -550,7 +566,7 @@ TEST_CASE("CString keeps short strings inside itself")
 
 	SUBCASE("a copy of a long string has its own heap memory")
 	{
-		CString text(std::string(40, 'x'));
+		CString text = Repeat('x', 40);
 		CString copy = text;
 		CHECK_FALSE(IsInline(copy));
 		CHECK(copy.GetCString() != text.GetCString());

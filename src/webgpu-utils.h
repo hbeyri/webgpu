@@ -1,13 +1,14 @@
 #pragma once
 
+#include "core/StringView.h"
+
 #include <webgpu/webgpu.h>
 
 #include <cstddef>
-#include <string_view>
 
 // WebGPU strings are a pointer + length (WGPUStringView). A length of
 // WGPU_STRLEN means the string is null-terminated.
-std::string_view toStdStringView(WGPUStringView view);
+HB::CStringView toCStringView(WGPUStringView view);
 
 // Makes a WGPUStringView from a string literal, with its length known at
 // compile time. Only use it with literals: for a char buffer, N is the size of

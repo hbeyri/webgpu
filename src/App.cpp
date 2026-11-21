@@ -80,14 +80,14 @@ HB::TResult<void, std::string> App::Initialize()
 	deviceDesc.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
 	deviceDesc.deviceLostCallbackInfo.callback = [](WGPUDevice const* /* device */, WGPUDeviceLostReason reason, WGPUStringView message, void* /* pUserData1 */, void* /* pUserData2 */)
 		{
-			std::cout << "Device lost: reason 0x" << std::hex << reason << std::dec << " (" << toStdStringView(message) << ")" << std::endl;
+			std::cout << "Device lost: reason 0x" << std::hex << reason << std::dec << " (" << toCStringView(message) << ")" << std::endl;
 		};
 	// Called for any error that is not caught by an error scope, for example a
 	// validation error. It must be set here: the device has no setter for it.
 	deviceDesc.uncapturedErrorCallbackInfo.nextInChain = nullptr;
 	deviceDesc.uncapturedErrorCallbackInfo.callback = [](WGPUDevice const* /* device */, WGPUErrorType type, WGPUStringView message, void* /* pUserData1 */, void* /* pUserData2 */)
 		{
-			std::cout << "Uncaptured device error: type 0x" << std::hex << type << std::dec << " (" << toStdStringView(message) << ")" << std::endl;
+			std::cout << "Uncaptured device error: type 0x" << std::hex << type << std::dec << " (" << toCStringView(message) << ")" << std::endl;
 		};
 #ifdef WEBGPU_BACKEND_DAWN
 	// By default, errors from command encoders are held back until

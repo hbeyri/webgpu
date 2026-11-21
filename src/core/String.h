@@ -1,10 +1,10 @@
 #pragma once
 
 #include "SmallArray.h"
+#include "StringView.h"
 
 #include <compare>
 #include <cstddef>
-#include <string_view>
 
 // A string of chars that owns its memory, like std::string. The text is always
 // followed by a '\0', so GetCString() can be passed to C functions.
@@ -17,7 +17,7 @@
 //         puts(name.GetCString());
 //     }
 //
-// A CString converts to std::string_view, so it can be passed to functions
+// A CString converts to CStringView, so it can be passed to functions
 // that take one. Using an index past the end stops the program.
 //
 // Small string optimization: a string of up to GetInlineCapacity() chars is
@@ -40,7 +40,7 @@ public:
 	// The first length chars of text, which may contain '\0'
 	CString(char const* text, SizeType length);
 
-	explicit CString(std::string_view text);
+	explicit CString(CStringView text);
 
 	// The number of chars, not counting the '\0' at the end
 	SizeType GetLength() const;
@@ -75,12 +75,12 @@ public:
 	// destroyed.
 	char const* GetCString() const;
 
-	std::string_view GetView() const
+	CStringView GetView() const
 	{
-		return std::string_view(GetCString(), GetLength());
+		return CStringView(GetCString(), GetLength());
 	}
 
-	operator std::string_view() const
+	operator CStringView() const
 	{
 		return GetView();
 	}
@@ -91,10 +91,10 @@ public:
 
 	// Adds text at the end. The text can be part of this string, like
 	// `name.Append(name)`.
-	void Append(std::string_view text);
+	void Append(CStringView text);
 	void Append(char c);
 
-	CString& operator+=(std::string_view text)
+	CString& operator+=(CStringView text)
 	{
 		Append(text);
 		return *this;
@@ -106,7 +106,7 @@ public:
 		return *this;
 	}
 
-	friend CString operator+(CString left, std::string_view right)
+	friend CString operator+(CString left, CStringView right)
 	{
 		left.Append(right);
 		return left;
@@ -118,22 +118,22 @@ public:
 		return left;
 	}
 
-	// Compare with another CString, a C string or a std::string_view. Ordering
-	// compares chars one by one, like std::string_view. Each kind of operand
+	// Compare with another CString, a C string or a CStringView. Ordering
+	// compares chars one by one, like CStringView. Each kind of operand
 	// has its own overload, so that each comparison has one best match.
 	friend bool operator==(CString const& left, CString const& right)
 	{
 		return left.GetView() == right.GetView();
 	}
 
-	friend bool operator==(CString const& left, std::string_view right)
+	friend bool operator==(CString const& left, CStringView right)
 	{
 		return left.GetView() == right;
 	}
 
 	friend bool operator==(CString const& left, char const* right)
 	{
-		return left.GetView() == std::string_view(right);
+		return left.GetView() == CStringView(right);
 	}
 
 	friend std::strong_ordering operator<=>(CString const& left, CString const& right)
@@ -141,14 +141,14 @@ public:
 		return left.GetView() <=> right.GetView();
 	}
 
-	friend std::strong_ordering operator<=>(CString const& left, std::string_view right)
+	friend std::strong_ordering operator<=>(CString const& left, CStringView right)
 	{
 		return left.GetView() <=> right;
 	}
 
 	friend std::strong_ordering operator<=>(CString const& left, char const* right)
 	{
-		return left.GetView() <=> std::string_view(right);
+		return left.GetView() <=> CStringView(right);
 	}
 
 	// For range-based for loops and standard algorithms
