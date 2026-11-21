@@ -1,18 +1,17 @@
 #pragma once
 
 #include "core/Result.h"
+#include "core/String.h"
 
 #include <webgpu/webgpu.h>
 #include <GLFW/glfw3.h>
-
-#include <string>
 
 class App
 {
 public:
 	// Initialize everything, or return an error message if something failed.
 	// On failure, everything that was already initialized is released.
-	HB::TResult<void, std::string> Initialize();
+	HB::TResult<void, HB::CString> Initialize();
 
 	// Uninitialize everything that was initialized. Safe to call after a
 	// failed or partial Initialize(), and safe to call more than once.

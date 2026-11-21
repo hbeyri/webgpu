@@ -5,10 +5,9 @@
 #include <webgpu/webgpu.h>
 #include <GLFW/glfw3.h>
 
-#include <string>
 #include <iostream>
 
-HB::TResult<void, std::string> App::Initialize()
+HB::TResult<void, HB::CString> App::Initialize()
 {
 	if (!glfwInit())
 	{
