@@ -39,7 +39,8 @@ CString::SizeType CString::GetLength() const
 
 CString::SizeType CString::GetCapacity() const
 {
-	return m_Chars.GetCapacity() == 0 ? 0 : m_Chars.GetCapacity() - 1;
+	// Never 0: it's at least the inline buffer, which includes room for '\0'
+	return m_Chars.GetCapacity() - 1;
 }
 
 void CString::Reserve(SizeType capacity)
@@ -153,6 +154,7 @@ void CString::CheckIndex(SizeType index) const
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -166,16 +168,40 @@ namespace HB::String::Internals
 	{
 		return static_cast<std::size_t>(std::count(text.begin(), text.end(), ' '));
 	}
+
+	// A string that fills the inline buffer, so appending anything moves it to
+	// the heap
+	CString MakeFullInline()
+	{
+		CString text(std::string(CString::GetInlineCapacity(), 'a'));
+		REQUIRE(text.GetCapacity() == text.GetLength());
+		return text;
+	}
+
+	// True if the string's chars are inside the CString object, in its inline
+	// buffer
+	bool IsInline(CString const& text)
+	{
+		auto address = reinterpret_cast<std::uintptr_t>(text.GetCString());
+		auto begin = reinterpret_cast<std::uintptr_t>(&text);
+		return address >= begin && address < begin + sizeof(CString);
+	}
 } // namespace HB::String::Internals
 
 using HB::String::Internals::CountSpaces;
+using HB::String::Internals::IsInline;
+using HB::String::Internals::MakeFullInline;
+
+// TSmallArray's three members, then the 16-char inline buffer
+static_assert(sizeof(CString) == 3 * sizeof(void*) + 16);
+static_assert(CString::GetInlineCapacity() == 15);
 
 TEST_CASE("CString starts empty")
 {
 	CString text;
 	CHECK(text.IsEmpty());
 	CHECK(text.GetLength() == 0);
-	CHECK(text.GetCapacity() == 0);
+	CHECK(text.GetCapacity() == CString::GetInlineCapacity());
 	REQUIRE(text.GetCString() != nullptr);
 	CHECK(text.GetCString()[0] == '\0');
 	CHECK(text == "");
@@ -195,7 +221,7 @@ TEST_CASE("CString constructors")
 	{
 		CString text = "";
 		CHECK(text.IsEmpty());
-		CHECK(text.GetCapacity() == 0);
+		CHECK(text.GetCapacity() == CString::GetInlineCapacity());
 	}
 
 	SUBCASE("from a pointer and a length, which may include '\\0'")
@@ -261,17 +287,23 @@ TEST_CASE("CString::Append")
 		CHECK(digits.GetCString()[1000] == '\0');
 	}
 
-	SUBCASE("the string itself, while it grows")
+	SUBCASE("the string itself, while it moves to the heap")
 	{
-		REQUIRE(text.GetCapacity() == text.GetLength());
-		text.Append(text);
-		CHECK(text == "abcabc");
+		CString full = MakeFullInline();
+		std::string expected = std::string(full.GetView()) + std::string(full.GetView());
+		full.Append(full);
+		CHECK_FALSE(IsInline(full));
+		CHECK(full == expected);
 	}
 
-	SUBCASE("part of the string itself, while it grows")
+	SUBCASE("part of the string itself, while it moves to the heap")
 	{
-		text.Append(text.GetView().substr(1, 2));
-		CHECK(text == "abcbc");
+		CString full = MakeFullInline();
+		full[1] = 'b';
+		full[2] = 'c';
+		std::string expected = std::string(full.GetView()) + "bc";
+		full.Append(full.GetView().substr(1, 2));
+		CHECK(full == expected);
 	}
 
 	SUBCASE("the string itself including its '\\0'")
@@ -280,6 +312,18 @@ TEST_CASE("CString::Append")
 		CHECK(text.GetLength() == 7);
 		CHECK(text.GetView() == std::string_view("abcabc\0", 7));
 		CHECK(text.GetCString()[7] == '\0');
+	}
+
+	SUBCASE("the string itself including its '\\0', while it moves to the heap")
+	{
+		CString full = MakeFullInline();
+		CString::SizeType length = full.GetLength();
+		full.Append(std::string_view(full.GetCString(), length + 1));
+		REQUIRE(full.GetLength() == 2 * length + 1);
+		CHECK(full[length - 1] == 'a');
+		CHECK(full[length] == 'a');
+		CHECK(full[2 * length] == '\0');
+		CHECK(full.GetCString()[2 * length + 1] == '\0');
 	}
 
 	SUBCASE("the string itself, without growing")
@@ -332,18 +376,31 @@ TEST_CASE("CString::Reserve and Clear")
 	SUBCASE("Reserve never makes the capacity smaller")
 	{
 		text.Reserve(1);
-		CHECK(text.GetCapacity() == 3);
+		CHECK(text.GetCapacity() == CString::GetInlineCapacity());
 	}
 
-	SUBCASE("Clear empties the string and keeps the capacity")
+	SUBCASE("Reserve up to the inline capacity doesn't allocate")
+	{
+		text.Reserve(CString::GetInlineCapacity());
+		CHECK(IsInline(text));
+	}
+
+	SUBCASE("Clear empties the string")
 	{
 		text.Clear();
 		CHECK(text.IsEmpty());
 		CHECK(text == "");
 		CHECK(text.GetCString()[0] == '\0');
-		CHECK(text.GetCapacity() == 3);
 		text.Append("de");
 		CHECK(text == "de");
+	}
+
+	SUBCASE("Clear keeps the heap memory of a long string")
+	{
+		text.Reserve(100);
+		CString::SizeType capacity = text.GetCapacity();
+		text.Clear();
+		CHECK(text.GetCapacity() == capacity);
 	}
 }
 
@@ -416,13 +473,24 @@ TEST_CASE("CString copies and moves")
 		CHECK(copy == "jello");
 	}
 
-	SUBCASE("a move takes the chars and leaves the source empty")
+	SUBCASE("a move of a short string copies the chars and leaves the source empty")
 	{
-		char const* data = text.GetCString();
 		CString moved = std::move(text);
-		CHECK(moved.GetCString() == data);
+		CHECK(moved == "hello");
+		CHECK(IsInline(moved));
 		CHECK(text.IsEmpty()); // NOLINT(bugprone-use-after-move)
 		CHECK(text.GetCString()[0] == '\0');
+	}
+
+	SUBCASE("a move of a long string takes its heap memory")
+	{
+		CString full = MakeFullInline();
+		full.Append('!');
+		char const* data = full.GetCString();
+		CString moved = std::move(full);
+		CHECK(moved.GetCString() == data);
+		CHECK(full.IsEmpty()); // NOLINT(bugprone-use-after-move)
+		CHECK(full.GetCapacity() == CString::GetInlineCapacity());
 	}
 
 	SUBCASE("assignment from a C string")
@@ -440,6 +508,53 @@ TEST_CASE("CString copies and moves")
 		}
 		CHECK(words[1] == "two");
 		CHECK(words[21] == "one!");
+	}
+}
+
+TEST_CASE("CString keeps short strings inside itself")
+{
+	SUBCASE("up to the inline capacity, the chars are inside the CString")
+	{
+		CHECK(IsInline(CString("hello")));
+		CString full = MakeFullInline();
+		CHECK(IsInline(full));
+		CHECK(full.GetCString()[full.GetLength()] == '\0');
+	}
+
+	SUBCASE("one more char moves them to the heap")
+	{
+		CString full = MakeFullInline();
+		full.Append('b');
+		CHECK_FALSE(IsInline(full));
+		CHECK(full.GetLength() == CString::GetInlineCapacity() + 1);
+		CHECK(full[full.GetLength() - 1] == 'b');
+		CHECK(full.GetCString()[full.GetLength()] == '\0');
+	}
+
+	SUBCASE("a long string stays on the heap when it gets shorter")
+	{
+		CString text(std::string(40, 'x'));
+		CHECK_FALSE(IsInline(text));
+		text.Clear();
+		text.Append("short");
+		CHECK_FALSE(IsInline(text));
+	}
+
+	SUBCASE("a copy of a short string is inline too")
+	{
+		CString text = "hello";
+		CString copy = text;
+		CHECK(IsInline(copy));
+		CHECK(copy == "hello");
+	}
+
+	SUBCASE("a copy of a long string has its own heap memory")
+	{
+		CString text(std::string(40, 'x'));
+		CString copy = text;
+		CHECK_FALSE(IsInline(copy));
+		CHECK(copy.GetCString() != text.GetCString());
+		CHECK(copy == text);
 	}
 }
 

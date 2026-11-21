@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Array.h"
+#include "SmallArray.h"
 
 #include <compare>
 #include <cstddef>
@@ -19,6 +19,10 @@
 //
 // A CString converts to std::string_view, so it can be passed to functions
 // that take one. Using an index past the end stops the program.
+//
+// Small string optimization: a string of up to GetInlineCapacity() chars is
+// kept inside the CString itself, without allocating. A longer one moves to
+// the heap, and stays there even if it gets shorter again.
 namespace HB
 {
 
@@ -47,8 +51,15 @@ public:
 	}
 
 	// The number of chars the string can hold before it has to allocate more
-	// memory, not counting the '\0' at the end
+	// memory, not counting the '\0' at the end. Never less than
+	// GetInlineCapacity().
 	SizeType GetCapacity() const;
+
+	// The longest string kept inside the CString without allocating
+	static constexpr SizeType GetInlineCapacity()
+	{
+		return InlineChars - 1;
+	}
 
 	// Makes room for at least capacity chars, so that appending up to that
 	// length doesn't allocate. Never makes the capacity smaller.
@@ -153,9 +164,13 @@ private:
 
 	void CheckIndex(SizeType index) const;
 
-	// Empty for an empty string. Otherwise, the chars followed by '\0'. An
-	// empty string doesn't need any memory.
-	TArray<char> m_Chars;
+	// The size of the inline buffer, including the '\0'. 16 makes a CString
+	// 40 bytes on 64-bit platforms: TSmallArray's three members, then the
+	// buffer.
+	static constexpr SizeType InlineChars = 16;
+
+	// Empty for an empty string. Otherwise, the chars followed by '\0'.
+	TSmallArray<char, InlineChars> m_Chars;
 };
 
 } // namespace HB
