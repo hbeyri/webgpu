@@ -12,7 +12,7 @@
 // fail. It holds either a value of type ValueType (success) or an error of
 // type ErrorType.
 //
-//     HB::Result<int, std::string> ParseDigit(char c)
+//     HB::TResult<int, std::string> ParseDigit(char c)
 //     {
 //         if (c < '0' || c > '9')
 //         {
@@ -27,13 +27,13 @@
 //         Use(digit.GetValue());
 //     }
 //
-// Use Result<void, ErrorType> for a function that returns nothing on success,
+// Use TResult<void, ErrorType> for a function that returns nothing on success,
 // and return ResultOk() from it.
 namespace HB
 {
 
 template <typename ValueType, typename ErrorType>
-class Result;
+class TResult;
 
 // What a function returns for success: `return ResultOk(value);`
 template <typename ValueType>
@@ -46,7 +46,7 @@ struct ResultOk
 	ValueType value;
 };
 
-// Success without a value, for Result<void, ErrorType>: `return ResultOk();`
+// Success without a value, for TResult<void, ErrorType>: `return ResultOk();`
 template <>
 struct ResultOk<void>
 {
@@ -65,20 +65,20 @@ struct ResultErr
 	ErrorType error;
 };
 
-namespace detail
+namespace Result::Internals
 {
 	template <typename A, typename B>
 	concept EqualityComparableTo = requires(A const& a, B const& b) {
 		{ a == b } -> std::convertible_to<bool>;
 	};
-} // namespace detail
+} // namespace Result::Internals
 
-// [[nodiscard]]: ignoring a Result returned by a function is a warning
+// [[nodiscard]]: ignoring a TResult returned by a function is a warning
 template <typename ValueType, typename ErrorType>
-class [[nodiscard]] Result
+class [[nodiscard]] TResult
 {
-	static_assert(!std::is_reference_v<ValueType> && !std::is_reference_v<ErrorType>, "Result cannot hold references");
-	static_assert(!std::is_void_v<ErrorType>, "The error type of a Result cannot be void");
+	static_assert(!std::is_reference_v<ValueType> && !std::is_reference_v<ErrorType>, "TResult cannot hold references");
+	static_assert(!std::is_void_v<ErrorType>, "The error type of a TResult cannot be void");
 
 public:
 	// Not explicit, so that `return ResultOk(value);` and
@@ -86,13 +86,13 @@ public:
 	// ResultErr("text") works for a std::string error.
 	template <typename U>
 		requires std::constructible_from<ValueType, U>
-	constexpr Result(ResultOk<U> ok) : m_Storage(std::in_place_index<0>, std::move(ok.value))
+	constexpr TResult(ResultOk<U> ok) : m_Storage(std::in_place_index<0>, std::move(ok.value))
 	{
 	}
 
 	template <typename G>
 		requires std::constructible_from<ErrorType, G>
-	constexpr Result(ResultErr<G> err) : m_Storage(std::in_place_index<1>, std::move(err.error))
+	constexpr TResult(ResultErr<G> err) : m_Storage(std::in_place_index<1>, std::move(err.error))
 	{
 	}
 
@@ -141,7 +141,7 @@ public:
 		return std::get_if<0>(&m_Storage);
 	}
 
-	// The pointer would outlive a temporary Result
+	// The pointer would outlive a temporary TResult
 	ValueType* TryGetValue() && = delete;
 
 	// The error. Stops the program if it holds a value.
@@ -174,21 +174,21 @@ public:
 		return std::get_if<1>(&m_Storage);
 	}
 
-	// The pointer would outlive a temporary Result
+	// The pointer would outlive a temporary TResult
 	ErrorType* TryGetError() && = delete;
 
-	friend constexpr bool operator==(Result const&, Result const&) = default;
+	friend constexpr bool operator==(TResult const&, TResult const&) = default;
 
 	template <typename U>
-		requires detail::EqualityComparableTo<ValueType, U>
-	friend constexpr bool operator==(Result const& result, ResultOk<U> const& ok)
+		requires Result::Internals::EqualityComparableTo<ValueType, U>
+	friend constexpr bool operator==(TResult const& result, ResultOk<U> const& ok)
 	{
 		return result.IsOk() && std::get<0>(result.m_Storage) == ok.value;
 	}
 
 	template <typename G>
-		requires detail::EqualityComparableTo<ErrorType, G>
-	friend constexpr bool operator==(Result const& result, ResultErr<G> const& err)
+		requires Result::Internals::EqualityComparableTo<ErrorType, G>
+	friend constexpr bool operator==(TResult const& result, ResultErr<G> const& err)
 	{
 		return result.IsErr() && std::get<1>(result.m_Storage) == err.error;
 	}
@@ -216,19 +216,19 @@ private:
 // The result of a function that returns nothing on success. It has no value,
 // so there is no GetValue or TryGetValue.
 template <typename ErrorType>
-class [[nodiscard]] Result<void, ErrorType>
+class [[nodiscard]] TResult<void, ErrorType>
 {
-	static_assert(!std::is_reference_v<ErrorType>, "Result cannot hold references");
-	static_assert(!std::is_void_v<ErrorType>, "The error type of a Result cannot be void");
+	static_assert(!std::is_reference_v<ErrorType>, "TResult cannot hold references");
+	static_assert(!std::is_void_v<ErrorType>, "The error type of a TResult cannot be void");
 
 public:
-	constexpr Result(ResultOk<void>)
+	constexpr TResult(ResultOk<void>)
 	{
 	}
 
 	template <typename G>
 		requires std::constructible_from<ErrorType, G>
-	constexpr Result(ResultErr<G> err) : m_Error(std::in_place, std::move(err.error))
+	constexpr TResult(ResultErr<G> err) : m_Error(std::in_place, std::move(err.error))
 	{
 	}
 
@@ -272,19 +272,19 @@ public:
 		return m_Error ? &*m_Error : nullptr;
 	}
 
-	// The pointer would outlive a temporary Result
+	// The pointer would outlive a temporary TResult
 	ErrorType* TryGetError() && = delete;
 
-	friend constexpr bool operator==(Result const&, Result const&) = default;
+	friend constexpr bool operator==(TResult const&, TResult const&) = default;
 
-	friend constexpr bool operator==(Result const& result, ResultOk<void> const&)
+	friend constexpr bool operator==(TResult const& result, ResultOk<void> const&)
 	{
 		return result.IsOk();
 	}
 
 	template <typename G>
-		requires detail::EqualityComparableTo<ErrorType, G>
-	friend constexpr bool operator==(Result const& result, ResultErr<G> const& err)
+		requires Result::Internals::EqualityComparableTo<ErrorType, G>
+	friend constexpr bool operator==(TResult const& result, ResultErr<G> const& err)
 	{
 		return result.IsErr() && *result.m_Error == err.error;
 	}

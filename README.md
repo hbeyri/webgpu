@@ -236,6 +236,6 @@ This means:
 - `dynamic_cast` and `typeid` on polymorphic types don't compile.
 - `try`, `catch` and `throw` don't compile.
 - Standard library calls that would normally throw (for example a failed `new` or `std::vector::at` out of range) terminate the program instead.
-- A function that can fail returns an `HB::Result<T, E>` instead of throwing, a C++ version of Rust's `Result`. See [`src/core/Result.h`](src/core/Result.h).
+- A function that can fail returns an `HB::TResult<T, E>` instead of throwing, a C++ version of Rust's `Result`. See [`src/core/Result.h`](src/core/Result.h).
 
 The [test executable](#test) is the exception: for it, the files in `src/` are compiled a second time with RTTI and exceptions enabled, because doctest uses an exception to stop a test case when a `REQUIRE` fails.

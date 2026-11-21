@@ -8,7 +8,7 @@
 #include <string>
 #include <iostream>
 
-HB::Result<void, std::string> App::Initialize()
+HB::TResult<void, std::string> App::Initialize()
 {
 	if (!glfwInit())
 	{

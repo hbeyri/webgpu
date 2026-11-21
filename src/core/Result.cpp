@@ -1,4 +1,4 @@
-// Result is a template, so all of its code is in Result.h. This file only
+// TResult is a template, so all of its code is in Result.h. This file only
 // holds its unit tests.
 #include "Result.h"
 
@@ -13,12 +13,12 @@
 
 using HB::ResultErr;
 using HB::ResultOk;
-using HB::Result;
+using HB::TResult;
 
-namespace
+namespace HB::Result::Internals
 {
-	// A function that can fail, to use Result the way it is meant to be used
-	Result<int, std::string> ParseDigit(char c)
+	// A function that can fail, to use TResult the way it is meant to be used
+	TResult<int, std::string> ParseDigit(char c)
 	{
 		if (c < '0' || c > '9')
 		{
@@ -28,7 +28,7 @@ namespace
 	}
 
 	// A function that returns nothing on success
-	Result<void, std::string> CheckPositive(int number)
+	TResult<void, std::string> CheckPositive(int number)
 	{
 		if (number <= 0)
 		{
@@ -36,20 +36,23 @@ namespace
 		}
 		return ResultOk();
 	}
-} // namespace
+} // namespace HB::Result::Internals
 
-// Result works at compile time too, so these are checked when the file compiles
-static_assert(Result<int, char>(ResultOk(2)).IsOk());
-static_assert(Result<int, char>(ResultErr('e')).IsErr());
-static_assert(Result<int, char>(ResultOk(2)).GetValue() == 2);
-static_assert(Result<int, char>(ResultErr('e')).GetError() == 'e');
-static_assert(Result<void, char>(ResultOk()).IsOk());
+using HB::Result::Internals::CheckPositive;
+using HB::Result::Internals::ParseDigit;
 
-TEST_CASE("Result holds either a value or an error")
+// TResult works at compile time too, so these are checked when the file compiles
+static_assert(TResult<int, char>(ResultOk(2)).IsOk());
+static_assert(TResult<int, char>(ResultErr('e')).IsErr());
+static_assert(TResult<int, char>(ResultOk(2)).GetValue() == 2);
+static_assert(TResult<int, char>(ResultErr('e')).GetError() == 'e');
+static_assert(TResult<void, char>(ResultOk()).IsOk());
+
+TEST_CASE("TResult holds either a value or an error")
 {
 	SUBCASE("ResultOk holds a value")
 	{
-		Result<int, std::string> result = ResultOk(3);
+		TResult<int, std::string> result = ResultOk(3);
 		CHECK(result.IsOk());
 		CHECK_FALSE(result.IsErr());
 		CHECK(result == ResultOk(3));
@@ -57,7 +60,7 @@ TEST_CASE("Result holds either a value or an error")
 
 	SUBCASE("ResultErr holds an error")
 	{
-		Result<int, std::string> result = ResultErr(std::string("failed"));
+		TResult<int, std::string> result = ResultErr(std::string("failed"));
 		CHECK(result.IsErr());
 		CHECK_FALSE(result.IsOk());
 		CHECK(result.GetError() == "failed");
@@ -65,16 +68,16 @@ TEST_CASE("Result holds either a value or an error")
 
 	SUBCASE("the value and the error can have the same type")
 	{
-		Result<int, int> ok = ResultOk(1);
-		Result<int, int> err = ResultErr(1);
+		TResult<int, int> ok = ResultOk(1);
+		TResult<int, int> err = ResultErr(1);
 		CHECK(ok.IsOk());
 		CHECK(err.IsErr());
 	}
 
-	SUBCASE("ResultOk and ResultErr convert to the types of the Result")
+	SUBCASE("ResultOk and ResultErr convert to the types of the TResult")
 	{
-		Result<std::string, std::string> ok = ResultOk("text");
-		Result<std::string, std::string> err = ResultErr("text");
+		TResult<std::string, std::string> ok = ResultOk("text");
+		TResult<std::string, std::string> err = ResultErr("text");
 		CHECK(ok == ResultOk(std::string("text")));
 		CHECK(err.GetError() == std::string("text"));
 	}
@@ -88,10 +91,10 @@ TEST_CASE("Result holds either a value or an error")
 	}
 }
 
-TEST_CASE("Result compares with other results, ResultOk and ResultErr")
+TEST_CASE("TResult compares with other results, ResultOk and ResultErr")
 {
-	Result<int, std::string> ok = ResultOk(3);
-	Result<int, std::string> err = ResultErr("failed");
+	TResult<int, std::string> ok = ResultOk(3);
+	TResult<int, std::string> err = ResultErr("failed");
 
 	CHECK(ok == ResultOk(3));
 	CHECK(ok != ResultOk(4));
@@ -100,22 +103,22 @@ TEST_CASE("Result compares with other results, ResultOk and ResultErr")
 	CHECK(err != ResultErr("other"));
 	CHECK(err != ResultOk(3));
 
-	CHECK(ok == Result<int, std::string>(ResultOk(3)));
+	CHECK(ok == TResult<int, std::string>(ResultOk(3)));
 	CHECK(ok != err);
 
 	SUBCASE("the same content as a value and as an error is not equal")
 	{
-		Result<int, int> okOne = ResultOk(1);
-		Result<int, int> errOne = ResultErr(1);
+		TResult<int, int> okOne = ResultOk(1);
+		TResult<int, int> errOne = ResultErr(1);
 		CHECK(okOne != errOne);
 	}
 }
 
-TEST_CASE("Result::GetValue and GetError")
+TEST_CASE("TResult::GetValue and GetError")
 {
 	SUBCASE("GetValue gives a reference to the value")
 	{
-		Result<int, std::string> result = ResultOk(3);
+		TResult<int, std::string> result = ResultOk(3);
 		CHECK(result.GetValue() == 3);
 		result.GetValue() = 5;
 		CHECK(result == ResultOk(5));
@@ -123,7 +126,7 @@ TEST_CASE("Result::GetValue and GetError")
 
 	SUBCASE("GetValue on a temporary moves the value out")
 	{
-		Result<std::unique_ptr<int>, std::string> result = ResultOk(std::make_unique<int>(3));
+		TResult<std::unique_ptr<int>, std::string> result = ResultOk(std::make_unique<int>(3));
 		std::unique_ptr<int> pointer = std::move(result).GetValue();
 		REQUIRE(pointer != nullptr);
 		CHECK(*pointer == 3);
@@ -131,24 +134,24 @@ TEST_CASE("Result::GetValue and GetError")
 
 	SUBCASE("GetError gives a reference to the error")
 	{
-		Result<int, std::string> result = ResultErr("failed");
+		TResult<int, std::string> result = ResultErr("failed");
 		result.GetError() += " twice";
 		CHECK(result == ResultErr("failed twice"));
 	}
 
 	SUBCASE("GetError on a temporary moves the error out")
 	{
-		Result<int, std::unique_ptr<int>> result = ResultErr(std::make_unique<int>(3));
+		TResult<int, std::unique_ptr<int>> result = ResultErr(std::make_unique<int>(3));
 		std::unique_ptr<int> pointer = std::move(result).GetError();
 		REQUIRE(pointer != nullptr);
 		CHECK(*pointer == 3);
 	}
 }
 
-TEST_CASE("Result::TryGetValue and TryGetError")
+TEST_CASE("TResult::TryGetValue and TryGetError")
 {
-	Result<int, std::string> ok = ResultOk(3);
-	Result<int, std::string> err = ResultErr("failed");
+	TResult<int, std::string> ok = ResultOk(3);
+	TResult<int, std::string> err = ResultErr("failed");
 
 	SUBCASE("TryGetValue points to the value, or is null for an error")
 	{
@@ -164,7 +167,7 @@ TEST_CASE("Result::TryGetValue and TryGetError")
 		CHECK(ok.TryGetError() == nullptr);
 	}
 
-	SUBCASE("the pointer can change what the Result holds")
+	SUBCASE("the pointer can change what the TResult holds")
 	{
 		if (auto* value = ok.TryGetValue())
 		{
@@ -173,19 +176,19 @@ TEST_CASE("Result::TryGetValue and TryGetError")
 		CHECK(ok == ResultOk(5));
 	}
 
-	SUBCASE("a const Result gives a pointer to const")
+	SUBCASE("a const TResult gives a pointer to const")
 	{
-		Result<int, std::string> const& constOk = ok;
+		TResult<int, std::string> const& constOk = ok;
 		static_assert(std::is_same_v<decltype(constOk.TryGetValue()), int const*>);
 		CHECK(*constOk.TryGetValue() == 3);
 	}
 }
 
-TEST_CASE("Result<void, E> is success without a value, or an error")
+TEST_CASE("TResult<void, E> is success without a value, or an error")
 {
 	SUBCASE("ResultOk() is success")
 	{
-		Result<void, std::string> result = ResultOk();
+		TResult<void, std::string> result = ResultOk();
 		CHECK(result.IsOk());
 		CHECK_FALSE(result.IsErr());
 		CHECK(result == ResultOk());
@@ -193,7 +196,7 @@ TEST_CASE("Result<void, E> is success without a value, or an error")
 
 	SUBCASE("ResultErr holds an error")
 	{
-		Result<void, std::string> result = ResultErr("failed");
+		TResult<void, std::string> result = ResultErr("failed");
 		CHECK(result.IsErr());
 		CHECK(result.GetError() == "failed");
 		CHECK(result == ResultErr("failed"));
@@ -208,10 +211,10 @@ TEST_CASE("Result<void, E> is success without a value, or an error")
 
 	SUBCASE("TryGetError points to the error, or is null for ResultOk()")
 	{
-		Result<void, std::string> err = ResultErr("failed");
+		TResult<void, std::string> err = ResultErr("failed");
 		REQUIRE(err.TryGetError() != nullptr);
 		CHECK(*err.TryGetError() == "failed");
-		Result<void, std::string> ok = ResultOk();
+		TResult<void, std::string> ok = ResultOk();
 		CHECK(ok.TryGetError() == nullptr);
 	}
 }
