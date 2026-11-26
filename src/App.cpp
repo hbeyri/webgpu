@@ -4,6 +4,7 @@
 
 #include <webgpu/webgpu.h>
 #include <GLFW/glfw3.h>
+#include <glfw3webgpu.h>
 
 #include <iostream>
 
@@ -47,9 +48,18 @@ HB::TResult<void, HB::CString> App::Initialize()
 	// copied around without worrying about its size).
 	std::cout << "WGPU instance: " << m_Instance << std::endl;
 
+	std::cout << "Creating surface..." << std::endl;
+	m_Surface = glfwCreateWindowWGPUSurface(m_Instance, m_Window);
+	if (!m_Surface)
+	{
+		Terminate();
+		return HB::ResultErr("Could not create a WebGPU surface!");
+	}
+
 	std::cout << "Requesting adapter..." << std::endl;
 	WGPURequestAdapterOptions adapterOpts = {};
 	adapterOpts.nextInChain = nullptr;
+	adapterOpts.compatibleSurface = m_Surface;
 	WGPUAdapter adapter = requestAdapterSync(m_Instance, &adapterOpts);
 
 	// The request can fail (e.g. no supported GPU), in which case adapter is null
@@ -133,6 +143,12 @@ void App::Terminate()
 	{
 		wgpuQueueRelease(m_Queue);
 		m_Queue = nullptr;
+	}
+
+	if (m_Surface)
+	{
+		wgpuSurfaceRelease(m_Surface);
+		m_Surface = nullptr;
 	}
 
 	if (m_Device)

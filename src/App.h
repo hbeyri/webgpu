@@ -32,4 +32,5 @@ private:
 	WGPUInstance m_Instance = nullptr;
 	WGPUDevice m_Device = nullptr;
 	WGPUQueue m_Queue = nullptr;
+	WGPUSurface m_Surface = nullptr;
 };
